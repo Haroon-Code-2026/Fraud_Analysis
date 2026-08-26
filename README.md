@@ -14,6 +14,12 @@
 * Build and compare classification models to predict fraud from the available features.
 * Present findings through clear visualisations, and check whether the model's own reasoning (feature importance) agrees with the statistical hypothesis testing.
 
+  ## Project Plan
+
+* High-level steps: explore raw data → ETL → hypothesis testing & visualisation → modelling.
+* **Data management:** raw CSV kept untouched in `data/raw/`; cleaning writes to a separate `data/cleaned/` file, so the source is always re-checkable.
+* **Why these methods:** statistical tests (not just charts) because a chart alone can't tell you if a difference is real or noise. Logistic Regression + Random Forest as a *deliberate pair* — one interpretable, one able to catch non-linear interactions — not two similar models.
+
 ## Hypothesis and how to validate?
 
 * H1: Accounts with prior fraudulent activity are more likely to commit fraud again.
@@ -26,6 +32,46 @@
   * Validation: box plot + Welch's t-test.
 * H5: Accounts with more recent failed transactions are more likely to commit fraud.
   * Validation: point-biserial correlation + bar chart.
+
+  ## Model
+
+Two supervised classification models were built to predict `Fraud_Label`: Logistic Regression and
+Random Forest. These were chosen as a deliberate pair rather than two similar models - Logistic
+Regression is interpretable, giving each feature a clear coefficient showing its direction and
+rough strength of association with fraud, which matters if this ever needs explaining to a
+non-technical stakeholder. Random Forest can pick up on interactions between features that
+Logistic Regression can't (for example, a specific combination of device type and merchant
+category), at the cost of being harder to explain the reasoning behind any individual prediction.
+
+`Risk_Score` was deliberately excluded from the feature set. The ETL notebook found it correlates
+with `Fraud_Label` at r = 0.386, and since it is itself a derived fraud-risk estimate, including it
+would let the model partly rely on an existing score rather than learning from the raw transaction
+data - the result would look artificially stronger without the model having genuinely learned
+more.
+
+Both models used `class_weight='balanced'`, since the dataset is moderately imbalanced (32.13%
+fraud), so neither model would default toward simply predicting the majority class. A stratified
+train/test split (75/25) preserved this same fraud rate in both sets.
+
+**Comparison:**
+
+| Model | Precision (Fraud) | Recall (Fraud) | ROC-AUC |
+|---|---|---|---|
+| Logistic Regression | 0.56 | 0.72 | 0.802 |
+| Random Forest | 1.00 | 0.62 | 0.812 |
+
+Random Forest reached the higher ROC-AUC and notably perfect precision on the fraud class - every
+transaction it flagged as fraud in the test set actually was fraud. Its recall was lower, meaning
+it missed a larger share of actual fraud cases. Logistic Regression traded this the other way:
+lower precision but higher recall, catching more fraud overall at the cost of more false alarms.
+Which model is preferable depends on the operational cost of a missed fraud case versus a false
+alarm - the data does not settle this on its own, it is a business decision.
+
+The Random Forest's feature importance was also compared against the EDA notebook's hypothesis
+testing results. `Failed_Transaction_Count_7d` accounted for 92.6% of its total importance, with
+every other feature contributing 1% or less - independently confirming H5, the only hypothesis
+that was statistically significant. A statistical test and a trained model, using entirely
+different methods, reaching the same conclusion is stronger evidence than either result alone.
 
   ## Key Findings
 
@@ -40,12 +86,28 @@
 * Logistic Regression reached 0.56 precision / 0.72 recall on the fraud class, ROC-AUC 0.802. Random Forest reached 1.00 precision / 0.62 recall, ROC-AUC 0.812 - a genuine trade-off between catching more fraud and avoiding false alarms, not a clear winner either way.
 * The Random Forest's own feature importance strongly corroborated H5: `Failed_Transaction_Count_7d` accounted for 92.6% of its total importance, with every other feature contributing 1% or less - a statistical test and a trained model, using different methods, independently reached the same conclusion.
 
+## Limitations
 
-  ## Project Plan
+* Four of the five hypotheses tested were not statistically supported, which limited how much of a
+  multi-factor story could be built from this dataset - the analysis is ultimately built around one
+  strong signal rather than several converging ones.
+* The model's performance is very heavily dependent on a single feature
+  (`Failed_Transaction_Count_7d`, 92.6% of feature importance). This makes it fragile in a
+  real-world sense - if that signal became unavailable, delayed, or unreliable, the model would
+  have little else to fall back on.
+* The dataset's `Location` column only has 5 categories, which limited how much genuine geographic
+  analysis was possible.
+* Fraud makes up 32.13% of this dataset, far higher than a real-world fraud rate would typically
+  be. Conclusions about class imbalance and model behaviour here may not transfer directly to a
+  dataset with a more realistic (much lower) fraud rate.
+* The dataset is documented as synthetic. The relationships found - and, just as importantly, the
+  relationships not found - reflect how the data was generated, not necessarily genuine real-world
+  fraud patterns. This project's conclusions should be read as specific to this dataset, not
+  generalised as fraud-detection findings in the abstract.
+* Each hypothesis was tested individually rather than jointly. A logistic regression including all
+  five variables at once could reveal an interaction effect between the four unsupported features
+  that the univariate tests used here would not detect.
 
-* High-level steps: explore raw data → ETL → hypothesis testing & visualisation → modelling.
-* **Data management:** raw CSV kept untouched in `data/raw/`; cleaning writes to a separate `data/cleaned/` file, so the source is always re-checkable.
-* **Why these methods:** statistical tests (not just charts) because a chart alone can't tell you if a difference is real or noise. Logistic Regression + Random Forest as a *deliberate pair* — one interpretable, one able to catch non-linear interactions — not two similar models.
 
 ## The rationale to map the business requirements to the Data Visualisations
 
@@ -106,4 +168,21 @@
 
 * Dataset: samayashar (Kaggle) - Fraud Detection Transactions Dataset.
 * Code Institute for the project structure and assessment criteria.
-* Claude AI for structure help, debugging, and statistical reasoning checks.
+
+## AI Assistance
+
+
+Claude AI was used throughout this project, primarily for: structuring the ETL, EDA, and Machine
+Learning notebooks into clear sections; checking which statistical test was appropriate for which
+type of comparison (e.g. chi-square for two categorical variables, a t-test for a numeric variable
+across two groups, a point-biserial correlation for a numeric variable against a binary one); and
+debugging specific errors as they came up, including a `FileNotFoundError` from `savefig()` being
+called before the output folder existed, and a `UserWarning` from calling `set_xticklabels()`
+without first setting fixed tick positions.
+
+AI assistance was not taken on trust. 
+
+AI assistance was also used to plan the Tableau Public dashboard structure (which worksheets to
+build, which fields to place on which shelf) and to draft the wording used in the dashboard's text
+boxes - but the dashboard itself, and the decision of what it should show, was built and reviewed
+directly rather than generated end-to-end.
