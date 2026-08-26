@@ -20,6 +20,13 @@
 * **Data management:** raw CSV kept untouched in `data/raw/`; cleaning writes to a separate `data/cleaned/` file, so the source is always re-checkable.
 * **Why these methods:** statistical tests (not just charts) because a chart alone can't tell you if a difference is real or noise. Logistic Regression + Random Forest as a *deliberate pair* — one interpretable, one able to catch non-linear interactions — not two similar models.
 
+
+* [Kanban Board](https://github.com/users/Haroon-Code-2026/projects/2)
+
+* [Tableau Dashboard](https://public.tableau.com/views/FraudAnalysisDashboard_17877394547560/DashboardSummary?:language=en-GB&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link)
+
+
+
 ## Hypothesis and how to validate?
 
 * H1: Accounts with prior fraudulent activity are more likely to commit fraud again.
